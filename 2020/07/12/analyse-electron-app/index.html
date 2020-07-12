@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="renderer" content="webkit">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>
+        Ovie博客
+    </title>
+    
+<link rel="stylesheet" href="/libs/highlight/styles/monokai-sublime.css">
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+<meta name="generator" content="Hexo 4.2.1"></head>
+
+<body id="bodyx">
+    <div class="hd posts">
+    <a href="/index.html"><i class="fa fa-reply replay-btn" aria-hidden="true"></i></a>
+    <div class="post-title">
+        <p>
+            Electron应用安全测试方法
+        </p>
+        <hr>
+    </div>
+    <div class="post-content">
+        <p>Electron应用的代码通常在<code>resources/</code>目录下的<code>app/</code>目录，可能被打包成<code>app.asar</code>文件（或者命名为<code>core.asar</code>）。在没有对<code>app.asar</code>包进行额外保护的情况下，可直接解压<code>app.asar</code>文件到<code>app/</code>目录。</p>
+<h4 id="解压缩asar文件"><a href="#解压缩asar文件" class="headerlink" title="解压缩asar文件"></a>解压缩asar文件</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">npm install -g asar</span><br><span class="line"></span><br><span class="line">解压： asar extract asar文件  解压文件夹</span><br><span class="line">压缩： asar pack 文件夹  asar文件</span><br></pre></td></tr></table></figure>
+
+<p>Electron会优先加载<code>app/</code>目录，而非<code>app.asar</code>。所以解压后直接修改<code>app/</code>目录下的代码，就可以简单地添加<code>console.log</code>或<code>fs.appendFileSync</code>输出些信息了。另外，当<code>package.json</code>文件（通常在<code>resources/app/</code>目录下）里的<code>main</code>字段写的是<code>app.asar/index.js</code>时，就会优先加载<code>app.asar</code>文件，需改成<code>app/index.js</code>。</p>
+<h4 id="设置HTTP-S-代理"><a href="#设置HTTP-S-代理" class="headerlink" title="设置HTTP(S)代理"></a>设置HTTP(S)代理</h4><p>运行程序时指定<code>--proxy-server</code>参数：<code>xxx.exe --proxy-server=127.0.0.1:8080</code> （可能无效）</p>
+<p>或</p>
+<p>在<code>package.json</code>文件的<code>main</code>字段指定的入口文件添加代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">const &#123;app&#125; &#x3D; require(&#39;electron&#39;)</span><br><span class="line">app.commandLine.appendSwitch(&#39;proxy-server&#39;, &#39;127.0.0.1:8080&#39;)  &#x2F;&#x2F; 相当于 --proxy-server&#x3D;127.0.0.1:8080</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="调试主进程"><a href="#调试主进程" class="headerlink" title="调试主进程"></a>调试主进程</h4><p>运行程序时指定<code>inpect</code>参数：<code>xxx.exe --inspect=5858</code>，让Electron在5858端口监听调试协议，或者执行<code>xxx.exe --inspect-brk=5858</code>，让程序在第一行代码上暂停执行等待调试器连接。然后打开chrome浏览器访问<code>chrome://inspect</code>进行连接、调试Electron应用。</p>
+<p>在打开的devtools的Sources栏的Filesystem栏，点击<code>+</code>按钮导入<code>app/</code>目录下的源码，然后下断点调试。如果真能下断点调试，就很方便了。不过有时会因为代码被混淆过或其它原因，导致断不下来。</p>
+<p>另一种方式：在代码里加上<code>debugger;</code>，加上<code>--inspect-brk</code>参数运行程序，然后用chrome连接、调试，这种方式有时也是看不到源代码，不过能单步执行、打印变量、看调用堆栈。</p>
+<h4 id="调试渲染进程"><a href="#调试渲染进程" class="headerlink" title="调试渲染进程"></a>调试渲染进程</h4><p>通过DevTools来调试渲染进程。打开DevTools的几种方式：</p>
+<ol>
+<li><p>看应用的菜单栏是否已提供打开DevTools的选项</p>
+</li>
+<li><p>尝试按快捷键：Windows或Linux按<code>Ctrl + Shift + I</code>，MacOS按<code>Cmd + Opt + I</code></p>
+</li>
+<li><p>修改代码文件，找到要开Devtools的<code>BrowserWindow</code>实例，调用<code>openDevTools</code>方法：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">let</span> win = <span class="keyword">new</span> BrowserWindow(winOptions);</span><br><span class="line">win.webContents.openDevTools();</span><br></pre></td></tr></table></figure>
+
+
+
+</li>
+</ol>
+<h4 id="查看版本号"><a href="#查看版本号" class="headerlink" title="查看版本号"></a>查看版本号</h4><p>查看应用使用的Electron的版本号：执行<code>process.versions.electron</code>查看，或抓包看<code>User-Agent</code>，Devtools里的数据包也有表明Electron版本号。</p>
+<p>查看该Electron应用的版本号：在<code>package.json</code>文件里查看，或执行：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">electron.remote.app.getVersion()  <span class="comment">// 渲染进程里执行</span></span><br><span class="line">electron.app.getVersion() <span class="comment">// 主进程里执行</span></span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<p>参考：</p>
+<ul>
+<li>《<a href="https://blog.doyensec.com/2018/07/19/instrumenting-electron-app.html" target="_blank" rel="noopener">Instrumenting Electron Apps for Security Testing</a>》，翻译版：《<a href="https://xz.aliyun.com/t/2461" target="_blank" rel="noopener">测试 Electron 应用的基本指南</a>》：介绍怎么调试、抓包Electron应用。本文相当于在该文章的基础上做点补充</li>
+</ul>
+
+    </div>
+    
+</div>
+    <div class="footer" id="footer">
+    <p>Copyright © 2020 <a class="flink" href="https://hexo.io" target="_blank" rel="noopener">Hexo</a>-<a class="flink" href="https://github.com/sanjinhub/hexo-theme-geek" target="_blank" rel="noopener">Geek</a>.
+        <label class="el-switch el-switch-green el-switch-sm" style="vertical-align: sub;">
+            <input type="checkbox" name="switch" id="update_style">
+            <span class="el-switch-style"></span>
+        </label>
+<!--         <script type="text/javascript">
+        var cnzz_protocol = (("https:" == document.location.protocol) ? "https://" : "http://");
+        document.write(unescape("%3Cspan id='cnzz_stat_icon_1278548644'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "v1.cnzz.com/stat.php%3Fid%3D1278548644%26show%3Dpic1' type='text/javascript'%3E%3C/script%3E"));
+        </script> -->
+    </p>
+</div>
+<input type="hidden" id="web_style" value="black">
+<input type="hidden" id="valine_appid" value="CmCti21ooOOIzFOhEyFkFvR0-gzGzoHsz">
+<input type="hidden" id="valine_appKey" value="FqiyUqbg7McKN2eG0MCewupf">
+
+<script src="/libs/jquery.min.js"></script>
+
+
+<script src="/libs/highlight/highlight.pack.js"></script>
+
+<script src='//cdn.jsdelivr.net/npm/valine@1.3.10/dist/Valine.min.js'></script>
+
+<script src="/js/js.js"></script>
+
+<style type="text/css">
+.v * {
+    color: #698fca;
+}
+
+.v .vlist .vcard .vhead .vsys {
+    color: #3a3e4a;
+}
+
+.v .vlist .vcard .vh .vmeta .vat {
+    color: #638fd5;
+}
+
+.v .vlist .vcard .vhead .vnick {
+    color: #6ba1ff;
+}
+
+.v a {
+    color: #8696b1;
+}
+
+.v .vlist .vcard .vhead .vnick:hover {
+    color: #669bfc;
+}
+</style>
+</body>
+
+</html>

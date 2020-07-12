@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="renderer" content="webkit">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>
+        Ovie博客
+    </title>
+    
+<link rel="stylesheet" href="/libs/highlight/styles/monokai-sublime.css">
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+<meta name="generator" content="Hexo 4.2.1"></head>
+
+<body id="bodyx">
+    <div class="hd posts">
+    <a href="/index.html"><i class="fa fa-reply replay-btn" aria-hidden="true"></i></a>
+    <div class="post-title">
+        <p>
+            Python线程不安全示例
+        </p>
+        <hr>
+    </div>
+    <div class="post-content">
+        <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> multiprocessing <span class="keyword">import</span> Process, Value</span><br><span class="line"><span class="keyword">from</span> threading <span class="keyword">import</span> Thread</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> time</span><br><span class="line"></span><br><span class="line"><span class="string">"""</span></span><br><span class="line"><span class="string">测试多线程、多进程、gevent协程下的线程安全问题（或者说是进程安全/协程安全）</span></span><br><span class="line"><span class="string">再python3.7下测试， 运行前先安装gevent模块： pip install gevent</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">一次运行结果实例：</span></span><br><span class="line"><span class="string">test_multithread: 194</span></span><br><span class="line"><span class="string">test_multiprocess: 0</span></span><br><span class="line"><span class="string">test_multiprocess_s:  192</span></span><br><span class="line"><span class="string">test_gevent: 13</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">"""</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Foo</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self)</span>:</span></span><br><span class="line">        self.i = <span class="number">0</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">inc</span><span class="params">(self)</span>:</span></span><br><span class="line">        tmp = self.i</span><br><span class="line">        tmp += <span class="number">1</span></span><br><span class="line">        time.sleep(<span class="number">0.001</span>)</span><br><span class="line">        self.i = tmp</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">inc_2</span><span class="params">(self)</span>:</span></span><br><span class="line">        tmp = self.i</span><br><span class="line">        tmp += <span class="number">1</span></span><br><span class="line">        self.i = tmp</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">test_multithread</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    在上面的inc方法加上time.sleep(0.001)后，最后打印出来的值远远小于线程数2000；</span></span><br><span class="line"><span class="string">    如果是time.sleep(1)，这里一般是打印出1；</span></span><br><span class="line"><span class="string">    如果没sleep， 通常打印出2000（即等于线程数），虽然这是线程不安全的。可能是由于CPU运行飞快、GIL的存在等原因，导致出现看似线程安全的结果</span></span><br><span class="line"><span class="string">    :return:</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line">    foo = Foo()</span><br><span class="line">    thread_list = []</span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> range(<span class="number">2000</span>):</span><br><span class="line">        thread = Thread(target=foo.inc)</span><br><span class="line">        thread_list.append(thread)</span><br><span class="line">    <span class="keyword">for</span> thread <span class="keyword">in</span> thread_list:</span><br><span class="line">        thread.start()</span><br><span class="line">    <span class="keyword">for</span> thread <span class="keyword">in</span> thread_list:</span><br><span class="line">        thread.join()</span><br><span class="line">    print(<span class="string">"test_multithread:"</span>, foo.i)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">test_gevent</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    gevent使用协程来实现并发。协程只在发生I/O、调用sleep等的时候进行切换。一般不用考虑线程安全的问题</span></span><br><span class="line"><span class="string">    不过这里最后输出的将会远远小于2000。因为在遇到sleep时进行了协程切换，所以协程切换不能发生在应当是原子操作的代码之间</span></span><br><span class="line"><span class="string">    :return:</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line">    <span class="comment"># 下面这句patch会让test_multithread函数卡住无法返回（。 所以test_gevent函数需在测试完多线程后再执行</span></span><br><span class="line">    <span class="keyword">from</span> gevent <span class="keyword">import</span> monkey; monkey.patch_all()</span><br><span class="line">    <span class="keyword">import</span> gevent</span><br><span class="line"></span><br><span class="line">    foo = Foo()</span><br><span class="line">    threads = [gevent.spawn(foo.inc) <span class="keyword">for</span> i <span class="keyword">in</span> range(<span class="number">2000</span>)]</span><br><span class="line">    gevent.joinall(threads)</span><br><span class="line">    print(<span class="string">"test_gevent:"</span>, foo.i)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">test_multiprocess</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    每个进程的foo变量各自独立，不共享，所以这里打印出0，在主进程的foo.i没被计算到，</span></span><br><span class="line"><span class="string">    需要将foo改为进程共享变量，才能观察其是 进程不安全 的，看下面的test_multiprocess_2函数</span></span><br><span class="line"><span class="string">    :return:</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line">    foo = Foo()</span><br><span class="line">    process_list = []</span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> range(<span class="number">200</span>):</span><br><span class="line">        process = Process(target=foo.inc)</span><br><span class="line">        process_list.append(process)</span><br><span class="line">    <span class="keyword">for</span> process <span class="keyword">in</span> process_list:</span><br><span class="line">        process.start()</span><br><span class="line">    <span class="keyword">for</span> process <span class="keyword">in</span> process_list:</span><br><span class="line">        process.join()</span><br><span class="line">    print(<span class="string">"test_multiprocess:"</span>, foo.i)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">inc_s</span><span class="params">(i)</span>:</span></span><br><span class="line">    i.value += <span class="number">1</span></span><br><span class="line">    <span class="comment"># 加锁的写法：</span></span><br><span class="line">    <span class="comment"># with i.get_lock():</span></span><br><span class="line">    <span class="comment">#     i.value += 1</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">test_multiprocess_s</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    在+=操作不加锁的情况下，这里打印的将是小于进程数200。 这是个进程不安全的例子。</span></span><br><span class="line"><span class="string">    在multiprocessing模块官方文档有这么一句话说multiprocessing.Value是进程/线程安全的</span></span><br><span class="line"><span class="string">    &gt; These shared objects will be process and thread-safe.</span></span><br><span class="line"><span class="string">    这句话是说在python字节代码层面上对该类型的读或写操作时是进程/线程安全的。但对于整个自增操作就不是了。</span></span><br><span class="line"><span class="string">    以下是自增变量的字节代码，并注释了Value加锁的位置，参考 https://eli.thegreenplace.net/2012/01/04/shared-counter-with-pythons-multiprocessing 这篇文章</span></span><br><span class="line"><span class="string">     0 LOAD_FAST                0 (val)</span></span><br><span class="line"><span class="string">     3 DUP_TOP</span></span><br><span class="line"><span class="string">                                         #&lt;--- Value lock acquired</span></span><br><span class="line"><span class="string">     4 LOAD_ATTR                0 (value)</span></span><br><span class="line"><span class="string">                                         #&lt;--- Value lock released</span></span><br><span class="line"><span class="string">     7 LOAD_CONST               1 (1)</span></span><br><span class="line"><span class="string">    10 INPLACE_ADD</span></span><br><span class="line"><span class="string">    11 ROT_TWO</span></span><br><span class="line"><span class="string">                                         #&lt;--- Value lock acquired</span></span><br><span class="line"><span class="string">    12 STORE_ATTR               0 (value)</span></span><br><span class="line"><span class="string">                                         #&lt;--- Value lock released</span></span><br><span class="line"><span class="string">    :return:</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line">    shared_value = Value(<span class="string">"i"</span>, <span class="number">0</span>)</span><br><span class="line">    process_list = []</span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> range(<span class="number">200</span>):</span><br><span class="line">        process = Process(target=inc_s, args=(shared_value, ))</span><br><span class="line">        process_list.append(process)</span><br><span class="line">    <span class="keyword">for</span> process <span class="keyword">in</span> process_list:</span><br><span class="line">        process.start()</span><br><span class="line">    <span class="keyword">for</span> process <span class="keyword">in</span> process_list:</span><br><span class="line">        process.join()</span><br><span class="line">    print(<span class="string">"test_multiprocess_s: "</span>, shared_value.value)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    test_multithread()</span><br><span class="line">    test_multiprocess()</span><br><span class="line">    test_multiprocess_s()</span><br><span class="line">    test_gevent()</span><br></pre></td></tr></table></figure>
+    </div>
+    
+</div>
+    <div class="footer" id="footer">
+    <p>Copyright © 2020 <a class="flink" href="https://hexo.io" target="_blank" rel="noopener">Hexo</a>-<a class="flink" href="https://github.com/sanjinhub/hexo-theme-geek" target="_blank" rel="noopener">Geek</a>.
+        <label class="el-switch el-switch-green el-switch-sm" style="vertical-align: sub;">
+            <input type="checkbox" name="switch" id="update_style">
+            <span class="el-switch-style"></span>
+        </label>
+<!--         <script type="text/javascript">
+        var cnzz_protocol = (("https:" == document.location.protocol) ? "https://" : "http://");
+        document.write(unescape("%3Cspan id='cnzz_stat_icon_1278548644'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "v1.cnzz.com/stat.php%3Fid%3D1278548644%26show%3Dpic1' type='text/javascript'%3E%3C/script%3E"));
+        </script> -->
+    </p>
+</div>
+<input type="hidden" id="web_style" value="black">
+<input type="hidden" id="valine_appid" value="CmCti21ooOOIzFOhEyFkFvR0-gzGzoHsz">
+<input type="hidden" id="valine_appKey" value="FqiyUqbg7McKN2eG0MCewupf">
+
+<script src="/libs/jquery.min.js"></script>
+
+
+<script src="/libs/highlight/highlight.pack.js"></script>
+
+<script src='//cdn.jsdelivr.net/npm/valine@1.3.10/dist/Valine.min.js'></script>
+
+<script src="/js/js.js"></script>
+
+<style type="text/css">
+.v * {
+    color: #698fca;
+}
+
+.v .vlist .vcard .vhead .vsys {
+    color: #3a3e4a;
+}
+
+.v .vlist .vcard .vh .vmeta .vat {
+    color: #638fd5;
+}
+
+.v .vlist .vcard .vhead .vnick {
+    color: #6ba1ff;
+}
+
+.v a {
+    color: #8696b1;
+}
+
+.v .vlist .vcard .vhead .vnick:hover {
+    color: #669bfc;
+}
+</style>
+</body>
+
+</html>

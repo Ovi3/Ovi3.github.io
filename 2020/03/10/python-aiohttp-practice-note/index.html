@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="renderer" content="webkit">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>
+        Ovie博客
+    </title>
+    
+<link rel="stylesheet" href="/libs/highlight/styles/monokai-sublime.css">
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+<meta name="generator" content="Hexo 4.2.1"></head>
+
+<body id="bodyx">
+    <div class="hd posts">
+    <a href="/index.html"><i class="fa fa-reply replay-btn" aria-hidden="true"></i></a>
+    <div class="post-title">
+        <p>
+            Python aiohttp模块使用笔记
+        </p>
+        <hr>
+    </div>
+    <div class="post-content">
+        <p>本文是在使用<code>aiohttp</code>模块时的一点笔记。代码在<code>Python 3.7</code>下运行。</p>
+<h4 id="基本使用"><a href="#基本使用" class="headerlink" title="基本使用"></a>基本使用</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> ayncio</span><br><span class="line"><span class="keyword">import</span> aiohttp</span><br><span class="line"></span><br><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">main</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">async</span> <span class="keyword">with</span> aiohttp.ClientSession(</span><br><span class="line">        	headers=&#123;<span class="string">"User-Agent"</span>:<span class="string">"aiohttp"</span>&#125;,</span><br><span class="line">        	timeout=aiohttp.ClientTimeout(total=<span class="number">3</span>)) <span class="keyword">as</span> session:</span><br><span class="line">        <span class="keyword">async</span> <span class="keyword">with</span> session.get(<span class="string">'http://httpbin.org/get'</span>) <span class="keyword">as</span> resp:</span><br><span class="line">            print(resp.status)</span><br><span class="line">            print(<span class="keyword">await</span> resp.text())</span><br><span class="line">            <span class="comment"># body = await resp.read()  # 读取字节流</span></span><br><span class="line">            <span class="comment"># body_json = await resp.json()  # 获取json对象，若Content-Type响应头不等于content_type参数（默认是application/json）会抛aiohttp.ContentTypeError异常，可以改为await resp.json(content_type=None)，就不会去验证该响应头了，但如果JSON解码错误也会抛异常，抛json.JSONDecodeError异常</span></span><br><span class="line"></span><br><span class="line">asyncio.run(main())</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="资源释放"><a href="#资源释放" class="headerlink" title="资源释放"></a>资源释放</h4><ol>
+<li><p>session要释放，调用<code>await session.close()</code>或使用<code>async with</code>。对于response，要调用<code>resp.close()</code>或使用<code>async with</code>。</p>
+</li>
+<li><p>不能在读数据（如<code>await resp.read()</code>等）之前调用<code>await resp.release()</code>，否则会阻塞在读数据操作。</p>
+</li>
+<li><p>若报<code>warning: Unclosed connection</code>，则检查资源是否释放。如其中一种情况：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">resp = <span class="keyword">await</span> session.get(url)</span><br><span class="line"><span class="keyword">await</span> resp.read()  <span class="comment"># 不加这句或下面一句的话就会报warning：Unclosed connection</span></span><br><span class="line"><span class="keyword">await</span> resp.release()</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+</li>
+</ol>
+<h4 id="设置超时"><a href="#设置超时" class="headerlink" title="设置超时"></a>设置超时</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=<span class="number">3</span>))</span><br><span class="line"><span class="comment"># 或</span></span><br><span class="line">session.get(url, timeout=aiohttp.ClientTimeout(total=<span class="number">3</span>))</span><br><span class="line"><span class="comment"># 若超时则抛asyncio.TimeoutError异常</span></span><br></pre></td></tr></table></figure>
+
+<p>超时要自己设置，因为默认是5分钟，太长了</p>
+<h4 id="代理"><a href="#代理" class="headerlink" title="代理"></a>代理</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 没有给ClientSession对象传递proxy的方式，只有在请求时设置代理</span></span><br><span class="line"></span><br><span class="line">session.get(url, proxy=<span class="string">"http://127.0.0.1:8080"</span>)</span><br><span class="line"><span class="comment"># 代理不可用会抛aiohttp.ClientHttpProxyError异常</span></span><br></pre></td></tr></table></figure>
+
+<p>不验证ssl证书（注意考虑流量劫持）</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=<span class="literal">False</span>))</span><br><span class="line"><span class="comment"># 或</span></span><br><span class="line">session.get(url, ssl=<span class="literal">False</span>)</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h4 id="指定cookie"><a href="#指定cookie" class="headerlink" title="指定cookie"></a>指定cookie</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">foo</span><span class="params">()</span>:</span></span><br><span class="line">    cookies = &#123;<span class="string">'csrfToken'</span>: <span class="string">"my_value"</span>&#125;</span><br><span class="line">    <span class="keyword">async</span> <span class="keyword">with</span> aiohttp.ClientSession(cookies=cookies) <span class="keyword">as</span> session:</span><br><span class="line">        print(session.cookie_jar.filter_cookies(<span class="string">"https://xxx.com"</span>))</span><br><span class="line">        <span class="keyword">async</span> <span class="keyword">with</span> session.get(<span class="string">"https://xxx.com"</span>) <span class="keyword">as</span> rp:</span><br><span class="line">            print(rp.cookies)</span><br><span class="line">            print(session.cookie_jar.filter_cookies(<span class="string">"https://xxx.com"</span>))</span><br></pre></td></tr></table></figure>
+
+<p>通过ClientSession的cookies参数指定cookies，使用该session请求任一的站点都会带上此cookie。若响应头带有<code>set-cookie: csrfToken=1010753502;Expires=...;Domain=...;path=/;</code>，session会根据该响应头更新csrfToken这个cookie值，且加上domain、expires等信息。</p>
+<p>若不想使用该session请求任意站点都带上此Cookie，可以：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">foo</span><span class="params">()</span>:</span></span><br><span class="line">    cookies = &#123;<span class="string">'csrfToken'</span>: <span class="string">"my_value"</span>&#125;</span><br><span class="line">    <span class="keyword">async</span> <span class="keyword">with</span> aiohttp.ClientSession(cookies=cookies) <span class="keyword">as</span> session:</span><br><span class="line">        <span class="keyword">from</span> yarl <span class="keyword">import</span> URL</span><br><span class="line">        session.cookie_jar.update_cookies(cookies, URL(<span class="string">"https://xxx.com"</span>))</span><br><span class="line">		<span class="comment"># 使用该session请求xxx.com站点时才携带此Cookie</span></span><br></pre></td></tr></table></figure>
+
+
+
+<p>清除session里的cookies：<code>session.cookie_jar.clear()</code></p>
+<h4 id="ValueError-too-many-file-descriptoersin-select-报错问题"><a href="#ValueError-too-many-file-descriptoersin-select-报错问题" class="headerlink" title="ValueError: too many file descriptoersin select()报错问题"></a>ValueError: too many file descriptoersin select()报错问题</h4><p>一般是并发请求数太大导致的，通常通过减少并发数解决。</p>
+<p>我遇到的情况：并发量设置的不高，运行一段时间后报该错误。通过搜索、调试，最后看<code>aiohttp</code>文档时发现是因为请求的https站点的服务器没有正确完成ssl连接，需要指定一个叫<code>enable_cleanup_closed</code>的参数为<code>True</code>：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(enable_cleanup_closed=<span class="literal">True</span>)</span><br></pre></td></tr></table></figure>
+
+<p>官方对<code>enable_cleanup_closed</code>参数的解释：</p>
+<blockquote>
+<p>Some ssl servers do not properly complete SSL shutdown process, in that case asyncio leaks SSL connections.<br>If this parameter is set to True, aiohttp additionally aborts underlining transport after 2 seconds. It is off by default.</p>
+</blockquote>
+
+    </div>
+    
+</div>
+    <div class="footer" id="footer">
+    <p>Copyright © 2020 <a class="flink" href="https://hexo.io" target="_blank" rel="noopener">Hexo</a>-<a class="flink" href="https://github.com/sanjinhub/hexo-theme-geek" target="_blank" rel="noopener">Geek</a>.
+        <label class="el-switch el-switch-green el-switch-sm" style="vertical-align: sub;">
+            <input type="checkbox" name="switch" id="update_style">
+            <span class="el-switch-style"></span>
+        </label>
+<!--         <script type="text/javascript">
+        var cnzz_protocol = (("https:" == document.location.protocol) ? "https://" : "http://");
+        document.write(unescape("%3Cspan id='cnzz_stat_icon_1278548644'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "v1.cnzz.com/stat.php%3Fid%3D1278548644%26show%3Dpic1' type='text/javascript'%3E%3C/script%3E"));
+        </script> -->
+    </p>
+</div>
+<input type="hidden" id="web_style" value="black">
+<input type="hidden" id="valine_appid" value="CmCti21ooOOIzFOhEyFkFvR0-gzGzoHsz">
+<input type="hidden" id="valine_appKey" value="FqiyUqbg7McKN2eG0MCewupf">
+
+<script src="/libs/jquery.min.js"></script>
+
+
+<script src="/libs/highlight/highlight.pack.js"></script>
+
+<script src='//cdn.jsdelivr.net/npm/valine@1.3.10/dist/Valine.min.js'></script>
+
+<script src="/js/js.js"></script>
+
+<style type="text/css">
+.v * {
+    color: #698fca;
+}
+
+.v .vlist .vcard .vhead .vsys {
+    color: #3a3e4a;
+}
+
+.v .vlist .vcard .vh .vmeta .vat {
+    color: #638fd5;
+}
+
+.v .vlist .vcard .vhead .vnick {
+    color: #6ba1ff;
+}
+
+.v a {
+    color: #8696b1;
+}
+
+.v .vlist .vcard .vhead .vnick:hover {
+    color: #669bfc;
+}
+</style>
+</body>
+
+</html>

