@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="renderer" content="webkit">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>
+        Ovie博客
+    </title>
+    
+<link rel="stylesheet" href="/libs/highlight/styles/monokai-sublime.css">
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+<meta name="generator" content="Hexo 4.2.1"></head>
+
+<body id="bodyx">
+    <div class="hd posts">
+    <a href="/index.html"><i class="fa fa-reply replay-btn" aria-hidden="true"></i></a>
+    <div class="post-title">
+        <p>
+            CodeQL官方教程中几道QL练习题
+        </p>
+        <hr>
+    </div>
+    <div class="post-content">
+        <p>跟着CodeQL官方的<a href="https://codeql.github.com/docs/writing-codeql-queries/ql-tutorials/#ql-tutorials" target="_blank" rel="noopener">QL tutorials</a>做练习，在<a href="https://codeql.github.com/docs/writing-codeql-queries/crown-the-rightful-heir/" target="_blank" rel="noopener">Crown the rightful heir</a>这一章节中有五个问题，来做一做。在看这篇文章之前需先跟着官方的QL tutorial做一遍。</p>
+<p>下面的CodeQL代码，直接放到<a href="https://lgtm.com/query/6710025057257064639/" target="_blank" rel="noopener">这里</a>运行即可</p>
+<h4 id="What-is-the-most-common-hair-color-in-the-village-And-in-each-region"><a href="#What-is-the-most-common-hair-color-in-the-village-And-in-each-region" class="headerlink" title="What is the most common hair color in the village? And in each region?"></a>What is the most common hair color in the village? And in each region?</h4><p>第一个问题：村里发色最多的一种是哪种颜色</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">import tutorial</span><br><span class="line"></span><br><span class="line">class HairColor extends string&#123;</span><br><span class="line">  HairColor()&#123;</span><br><span class="line">    exists(Person p | this &#x3D; p.getHairColor())</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">  int ct()&#123;</span><br><span class="line">    result &#x3D; count(Person p | p.getHairColor() &#x3D; this | p)</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">from HairColor c</span><br><span class="line">where not exists(HairColor c1 | c1.ct() &gt; c.ct())</span><br><span class="line">select c, c.ct()</span><br></pre></td></tr></table></figure>
+
+<p>执行结果：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">brown	46</span><br></pre></td></tr></table></figure>
+
+
+
+<p>第二个问题：每个地区发色最多的一种是哪种颜色</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">import tutorial</span><br><span class="line"></span><br><span class="line">class HairColor extends string&#123;</span><br><span class="line">  HairColor()&#123;</span><br><span class="line">    exists(Person p | this &#x3D; p.getHairColor())</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">  &#x2F;&#x2F; int ct()&#123;</span><br><span class="line">  &#x2F;&#x2F;   result &#x3D; count(Person p | p.getHairColor() &#x3D; this | p)</span><br><span class="line">  &#x2F;&#x2F; &#125;</span><br><span class="line">  </span><br><span class="line">  int ctOfLocation(Location loc)&#123; </span><br><span class="line">    result &#x3D; count(Person p | p.getLocation() &#x3D; loc and p.getHairColor() &#x3D; this | p)</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">class Location extends string&#123;</span><br><span class="line">  Location() &#123;</span><br><span class="line">    this in [&quot;east&quot;, &quot;west&quot;, &quot;south&quot;, &quot;north&quot;]</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">from Location location, HairColor c</span><br><span class="line">where c.ctOfLocation(location) &#x3D; max(HairColor c1 | | c1.ctOfLocation(location) )</span><br><span class="line">select location, c, c.ctOfLocation(location)</span><br></pre></td></tr></table></figure>
+
+<p>执行结果：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">west	brown	7</span><br><span class="line">east	brown	11</span><br><span class="line">north	black	8</span><br><span class="line">south	brown	10</span><br></pre></td></tr></table></figure>
+
+
+
+<p>说明下：各地区拥有brown发色的人的个数分别是：</p>
+<ul>
+<li>西部：7</li>
+<li>东部：11</li>
+<li>北部：3</li>
+<li>南部：10</li>
+<li>无地区：15 （也就是<code>Person.getLocation()</code>为空的人）</li>
+</ul>
+<p>总数就是46，符合第一个问题的查询结果。</p>
+<h4 id="Which-villager-has-the-most-children-Who-has-the-most-descendants"><a href="#Which-villager-has-the-most-children-Who-has-the-most-descendants" class="headerlink" title="Which villager has the most children? Who has the most descendants?"></a>Which villager has the most children? Who has the most descendants?</h4><p>第一个问题：哪位村民拥有最多小孩</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">import tutorial</span><br><span class="line"></span><br><span class="line">Person childOf(Person p) &#123;</span><br><span class="line">  p &#x3D; parentOf(result)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int childrenNumber(Person p) &#123;</span><br><span class="line">  result &#x3D; count(Person c | c &#x3D; childOf(p) | c)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">from Person p</span><br><span class="line">where childrenNumber(p) &#x3D; max(Person q | | childrenNumber(q))</span><br><span class="line">select p, childrenNumber(p)</span><br></pre></td></tr></table></figure>
+
+<p>第二个问题：哪位村民拥有最多后代</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">import tutorial</span><br><span class="line"></span><br><span class="line">Person descendantOf(Person p) &#123;</span><br><span class="line">  p &#x3D; parentOf+(result)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int descendantNumber(Person p) &#123;</span><br><span class="line">  result &#x3D; count(Person c | c &#x3D; descendantOf(p) | c)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">from Person p</span><br><span class="line">where descendantNumber(p) &#x3D; max(Person q | | descendantNumber(q))</span><br><span class="line">select p, descendantNumber(p)</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h4 id="How-many-people-live-in-each-region-of-the-village"><a href="#How-many-people-live-in-each-region-of-the-village" class="headerlink" title="How many people live in each region of the village?"></a>How many people live in each region of the village?</h4><p>各地区分别有多少人居住：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">import tutorial</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">class Location extends string&#123;</span><br><span class="line">  Location() &#123;</span><br><span class="line">    this in [&quot;east&quot;, &quot;west&quot;, &quot;south&quot;, &quot;north&quot;]</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">from Location location</span><br><span class="line">select location, count(Person p |  p.getLocation() &#x3D; location | p)</span><br></pre></td></tr></table></figure>
+
+<p>（查询结果不包含20位无地区的人员）</p>
+<h4 id="Do-all-villagers-live-in-the-same-region-of-the-village-as-their-parents"><a href="#Do-all-villagers-live-in-the-same-region-of-the-village-as-their-parents" class="headerlink" title="Do all villagers live in the same region of the village as their parents?"></a>Do all villagers live in the same region of the village as their parents?</h4><p>找出跟他家长不住在同一地区的人：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">import tutorial</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">from Person p, Person c</span><br><span class="line">where p &#x3D; parentOf(c) and p.getLocation() !&#x3D; c.getLocation()</span><br><span class="line">select c</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="Find-out-whether-there-are-any-time-travelers-in-the-village-Hint-Look-for-“impossible”-family-relations"><a href="#Find-out-whether-there-are-any-time-travelers-in-the-village-Hint-Look-for-“impossible”-family-relations" class="headerlink" title="Find out whether there are any time travelers in the village! (Hint: Look for “impossible” family relations.)"></a>Find out whether there are any time travelers in the village! (Hint: Look for “impossible” family relations.)</h4><p>这个问题不太具体，我理解为：找出比他后代的年纪还小的人。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">import tutorial</span><br><span class="line"></span><br><span class="line">Person descendantOf(Person p) &#123;</span><br><span class="line">  p &#x3D; parentOf+(result)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">from Person p</span><br><span class="line">where exists(Person c | c &#x3D; descendantOf(p) and p.getAge() &lt; c.getAge())</span><br><span class="line">select p, p.getAge()</span><br></pre></td></tr></table></figure>
+    </div>
+    
+</div>
+    <div class="footer" id="footer">
+    <p>Copyright © 2020 <a class="flink" href="https://hexo.io" target="_blank" rel="noopener">Hexo</a>-<a class="flink" href="https://github.com/sanjinhub/hexo-theme-geek" target="_blank" rel="noopener">Geek</a>.
+        <label class="el-switch el-switch-green el-switch-sm" style="vertical-align: sub;">
+            <input type="checkbox" name="switch" id="update_style">
+            <span class="el-switch-style"></span>
+        </label>
+<!--         <script type="text/javascript">
+        var cnzz_protocol = (("https:" == document.location.protocol) ? "https://" : "http://");
+        document.write(unescape("%3Cspan id='cnzz_stat_icon_1278548644'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "v1.cnzz.com/stat.php%3Fid%3D1278548644%26show%3Dpic1' type='text/javascript'%3E%3C/script%3E"));
+        </script> -->
+    </p>
+</div>
+<input type="hidden" id="web_style" value="black">
+<input type="hidden" id="valine_appid" value="CmCti21ooOOIzFOhEyFkFvR0-gzGzoHsz">
+<input type="hidden" id="valine_appKey" value="FqiyUqbg7McKN2eG0MCewupf">
+
+<script src="/libs/jquery.min.js"></script>
+
+
+<script src="/libs/highlight/highlight.pack.js"></script>
+
+<script src='//cdn.jsdelivr.net/npm/valine@1.3.10/dist/Valine.min.js'></script>
+
+<script src="/js/js.js"></script>
+
+<style type="text/css">
+.v * {
+    color: #698fca;
+}
+
+.v .vlist .vcard .vhead .vsys {
+    color: #3a3e4a;
+}
+
+.v .vlist .vcard .vh .vmeta .vat {
+    color: #638fd5;
+}
+
+.v .vlist .vcard .vhead .vnick {
+    color: #6ba1ff;
+}
+
+.v a {
+    color: #8696b1;
+}
+
+.v .vlist .vcard .vhead .vnick:hover {
+    color: #669bfc;
+}
+</style>
+</body>
+
+</html>
