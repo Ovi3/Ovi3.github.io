@@ -2,6 +2,15 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
+    <loc>https://ovi3.github.io/2024/03/29/extract-react-router/</loc>
+    
+    <lastmod>2024-03-29</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
     <loc>https://ovi3.github.io/2023/12/29/find-cyberspace-search-engine/</loc>
     
     <lastmod>2024-03-29</lastmod>
@@ -296,6 +305,13 @@
   
   <url>
     <loc>https://ovi3.github.io/tags/PHP/</loc>
+    <lastmod>2024-03-29</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>https://ovi3.github.io/tags/JavaScript/</loc>
     <lastmod>2024-03-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.2</priority>
