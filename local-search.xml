@@ -73,6 +73,25 @@
   
   
   <entry>
+    <title>如何找出网络空间测绘引擎扫描客户端IP</title>
+    <link href="/2023/12/29/find-cyberspace-search-engine/"/>
+    <url>/2023/12/29/find-cyberspace-search-engine/</url>
+    
+    <content type="html"><![CDATA[<p>年底了，水一篇文章。目前的网络空间测绘引擎有fofa、shodan、zoomeye、hunter、censys等，这篇文章主要写写如何找出它们的扫描客户端IP与UDP probe数据包。</p><h3 id="自己公开"><a href="#自己公开" class="headerlink" title="自己公开"></a>自己公开</h3><p>比如 Censys 公开了自己的扫描客户端ip：<a href="https://support.censys.io/hc/en-us/articles/360043177092-Opt-Out-of-Data-Collection">https://support.censys.io/hc/en-us/articles/360043177092-Opt-Out-of-Data-Collection</a></p><h3 id="第三方平台"><a href="#第三方平台" class="headerlink" title="第三方平台"></a>第三方平台</h3><p>网上一些平台也收集了一些：</p><ul><li>fapro ：<a href="https://faweb.fofapro.com/classification/">https://faweb.fofapro.com/classification/</a></li><li>GreyNoise：<a href="https://viz.greynoise.io/query?gnql=actor%3AShodan.io">https://viz.greynoise.io/query?gnql=actor%3AShodan.io</a> ， 这个站点还分析了相似IP， 如 <a href="https://viz.greynoise.io/ip/159.65.111.154">https://viz.greynoise.io/ip/159.65.111.154</a> 这个 BinaryEdge 的ip，点击页面的View Similar IPs 可以大概看看可能是 BinaryEdge 的其他IP（该功能需登录订阅）</li></ul><p>通过搜索引擎搜索也可以搜索到一些，如shodan扫描器的ip：</p><ul><li><a href="https://gist.github.com/jfqd/4ff7fa70950626a11832a4bc39451c1c">https://gist.github.com/jfqd/4ff7fa70950626a11832a4bc39451c1c</a></li><li><a href="https://wiki.ipfire.org/configuration/firewall/blockshodan">https://wiki.ipfire.org/configuration/firewall/blockshodan</a></li></ul><h3 id="回显ip的服务"><a href="#回显ip的服务" class="headerlink" title="回显ip的服务"></a>回显ip的服务</h3><p>互联网上有一些服务会输出来访者的ip，那如何找到这类服务呢。</p><p>利用公开的扫描客户端IP去它的搜索引擎里去搜索。  如：</p><ul><li>使用shodan的ip去shodan搜索 <a href="https://www.shodan.io/search?query=%2271.6.167.142%22+-Ethereum+-NTP">“71.6.167.142” -Ethereum -NTP</a>，  可提取出这个特征 <a href="https://www.shodan.io/search?query=http.html%3A%22Outlook+Logon%22+http.html%3A%22Never+gonna+give+you+up%22">http.html:”Outlook Logon” http.html:”Never gonna give you up”</a> 的服务会回显IP（这些服务看着好像是蜜罐）</li><li>使用censys公开的网段去censys搜索，<a href="https://search.censys.io/search?resource=hosts&sort=RELEVANCE&per_page=25&virtual_hosts=EXCLUDE&q=services.http.response.body%3A+%22162.142.125%22&ref=censysgpt">services.http.response.body: “162.142.125”</a>，可以提取出一些特征，如：<a href="https://search.censys.io/search?resource=hosts&sort=RELEVANCE&per_page=25&virtual_hosts=EXCLUDE&q=services%3A%28http.response.body%3A+%22%E4%BD%A0%E7%9A%84IP%EF%BC%9A%22+and+port%3A80%29">services:(http.response.body: “你的IP：” and port:80)</a></li></ul><p>而Fofa会将自己的IP给替换成 <code>*.*.*.*</code>，像 <a href="https://fofa.info/result?qbase64=aXMgbm90IGFsbG93ZWQgIHRvIGNvbm5lY3QgdG8gdGhpcyBNeVNRTCBzZXJ2ZXI%3D">“is not allowed to connect to this MySQL server”</a> 。 那是不是可以用 <code>&quot;*.*.*.*&quot;</code>搜索出那些回显IP的服务呢。测试了下并不行，估计是分词搜索的原因。</p><p>而zoomeye会把自己的ip替换为<code>xxx.xxx.xxx.xxx</code>，可以使用 <a href="https://www.zoomeye.org/searchResult?q=%22xxx.xxx.xxx.xxx%22">“xxx.xxx.xxx.xxx”</a>去搜索。</p><p>后面我也注意到，其实fofa跟zoomeye的替换并不全面。fofa没有替换http响应里的ip，像 <a href="https://fofa.info/result?qbase64=IkJhZCBSZXF1ZXN0IiAmJiAiaXAi">“Bad Request” &amp;&amp; “ip”</a> ，<a href="https://fofa.info/result?qbase64=aGVhZGVyPSJ4LXJlcXVlc3QtaXAiIA%3D%3D">header=”x-request-ip”</a> 。且对于一些被截取、被编码的ip或其他格式的ip，也不会替换到。</p><p>要找到这些回显IP的服务，也可以自己全网扫一遍看哪些服务会回显自己的ip，记录下来。</p><h3 id="UDP-Probe数据包"><a href="#UDP-Probe数据包" class="headerlink" title="UDP Probe数据包"></a>UDP Probe数据包</h3><p>对于UDP服务的识别需要发送一个该协议的probe包，在互联网上有一些机器起的是echo服务，就是你发什么它就回复什么。像 <a href="https://fofa.info/result?qbase64=YmFzZV9wcm90b2NvbD0idWRwIiAmJiBwb3J0PSIyNDI1IiAmJiBiYW5uZXI9InRlc3Q6UEM6MzI6Z3JhYiB0ZXN0Ig%3D%3D">base_protocol=”udp” &amp;&amp; port=”2425” &amp;&amp; banner=”test:PC:32:grab test”</a> ，<a href="https://fofa.info/result?qbase64=IkdFVCAvIEhUVFAvMS4xIiAmJiAiQWNjZXB0OiAqLyoiICYmIHByb3RvY29sPSJ1bmtub3duIg%3D%3D">“GET / HTTP/1.1” &amp;&amp; “Accept: <em>/</em>“ &amp;&amp; protocol=”unknown”</a> ，<a href="https://hunter.qianxin.com/list?search=protocol%3D%3D%22echo%22&conditions=">protocol==”echo”</a> 。区分出这些机器后，再用这些机器ip去搜索可以大概知道各扫描客户端对不同UDP端口发的是什么UDP包。</p><h3 id="部署蜜罐"><a href="#部署蜜罐" class="headerlink" title="部署蜜罐"></a>部署蜜罐</h3><p>自己部署蜜罐成本大，没弄过。</p>]]></content>
+    
+    
+    
+    <tags>
+      
+      <tag>网络空间测绘</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>Burpsuite 插件开发 - 修改右键菜单层级</title>
     <link href="/2023/09/27/burpsuite-extension-menu-level/"/>
     <url>/2023/09/27/burpsuite-extension-menu-level/</url>
