@@ -208,7 +208,7 @@
             <h1 style="display: none">恶意的Nuclei模板</h1>
             
             <div class="markdown-body">
-              <p>最近同事在集成<a target="_blank" rel="noopener" href="https://github.com/projectdiscovery/nuclei">nuclei</a>，也看了一些集成nuclei的扫描工具，在思考一个问题：对于集成nuclei的安全工具（比如nuclei官方提供的云扫描功能），假如其允许用户编辑PoC模板，也可以指定扫描目标执行模板并查看扫描结果，那么写一个恶意的nuclei模板，是否就可以拿下这个工具的服务器？</p>
+              <p>最近看同事在集成<a target="_blank" rel="noopener" href="https://github.com/projectdiscovery/nuclei">nuclei</a>，也看了一些集成nuclei的扫描工具，在思考一个问题：对于集成nuclei的安全工具（比如nuclei官方提供的云扫描功能），假如其允许用户编辑PoC模板，也可以指定扫描目标执行模板并查看扫描结果，那么写一个恶意的nuclei模板，是否就可以拿下这个工具的服务器？</p>
 <p>本来以为直接用nuclei提供的<a target="_blank" rel="noopener" href="https://docs.projectdiscovery.io/templates/protocols/code">code协议</a>随随便便就可以执行任意命令了，结果发现nuclei还是做了些防护的。</p>
 <p>写了几个恶意的模板：（以下在<code>Linux</code>和<code>nuclei v3.2.9</code>版本下测试）</p>
 <h2 id="读文件"><a href="#读文件" class="headerlink" title="读文件"></a>读文件</h2><p>读取文件，并用http把文件内容发送出来。 （threads指定为1，让文件按行顺序发送，避免服务端接收到乱序的内容）。</p>
